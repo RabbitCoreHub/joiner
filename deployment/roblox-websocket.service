@@ -1,0 +1,19 @@
+[Unit]
+Description=Roblox Auto-Joiner WebSocket Server
+After=network.target
+PartOf=roblox.target
+
+[Service]
+Type=simple
+User=roblox
+Group=roblox
+WorkingDirectory=/opt/roblox-auto-joiner
+EnvironmentFile=/opt/roblox-auto-joiner/.env
+ExecStart=/opt/roblox-auto-joiner/venv/bin/python websocket_server.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=roblox.target

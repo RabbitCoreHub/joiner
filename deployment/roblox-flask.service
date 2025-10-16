@@ -1,0 +1,19 @@
+[Unit]
+Description=Roblox Auto-Joiner Flask HTTP API
+After=network.target
+PartOf=roblox.target
+
+[Service]
+Type=simple
+User=roblox
+Group=roblox
+WorkingDirectory=/opt/roblox-auto-joiner
+EnvironmentFile=/opt/roblox-auto-joiner/.env
+ExecStart=/opt/roblox-auto-joiner/venv/bin/gunicorn main:app --bind 0.0.0.0:5000 --workers 2 --timeout 120
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=roblox.target

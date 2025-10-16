@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: givescript-roblox-autojoiner
+    runtime: python3
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn --bind 0.0.0.0:5000 main:app --workers 3 --timeout 120"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DISCORD_TOKEN
+        generateValue: true
+        required: true
+      - key: RENDER_EXTERNAL_URL
+        fromService:
+          type: web
+          property: host

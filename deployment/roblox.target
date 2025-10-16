@@ -1,0 +1,6 @@
+[Unit]
+Description=Roblox Auto-Joiner Service Group
+Wants=roblox-flask.service roblox-websocket.service
+
+[Install]
+WantedBy=multi-user.target
