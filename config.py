@@ -2,43 +2,33 @@ import os
 import socket
 
 def get_api_url():
-    """Автоматически определяет API URL на основе окружения или локального хоста"""
-    # Проверяем переменную окружения RENDER_EXTERNAL_URL (для Render.com)
     render_url = os.getenv("RENDER_EXTERNAL_URL")
     if render_url:
         return render_url.rstrip('/')
 
-    # Проверяем переменную окружения API_URL
     api_url = os.getenv("API_URL")
     if api_url:
         return api_url.rstrip('/')
 
-    # Для локальной разработки пытаемся определить автоматически
     try:
-        # Получаем локальный IP
         hostname = socket.gethostname()
         local_ip = socket.gethostbyname(hostname)
 
-        # Если запущено на Replit
         if os.getenv("REPLIT_DOMAINS"):
             domains = os.getenv("REPLIT_DOMAINS", "").split(',')
             if domains and domains[0]:
                 return f"https://{domains[0]}"
 
-        # Для локального хоста
         if local_ip.startswith("127.") or local_ip.startswith("192.168.") or local_ip.startswith("10."):
             return "http://localhost:5000"
 
     except Exception:
         pass
 
-    # Fallback
     return "http://localhost:5000"
 
-# Определяем API URL автоматически
 API_URL = get_api_url()
 
-# Остальные настройки остаются без изменений
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN", "")
 DISCORD_RECONNECT_DELAY = 5
 
@@ -96,5 +86,4 @@ WEBSOCKET_HOST = '0.0.0.0'
 WEBSOCKET_PORT = 8765
 WEBSOCKET_RECONNECT_DELAY = 5
 
-# Выводим API URL для отладки
 print(f"🔗 API URL: {API_URL}")

@@ -1,16 +1,11 @@
-from flask import Flask, request, jsonify, send_file, session
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import threading
 import time
 from datetime import datetime
 from collections import deque
 import os
-import secrets
-from database import (
-    init_db, create_new_key, get_all_keys, activate_key, 
-    verify_key, check_player_key, delete_key, freeze_key, unfreeze_key,
-    manually_activate_key
-)
+
 try:
     from discord_bot_http import start_discord_bot_background, discord_stats
     DISCORD_BOT_AVAILABLE = True
@@ -28,11 +23,7 @@ except Exception as e:
     }
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
-CORS(app, supports_credentials=True)
-
-ADMIN_USERNAME = 'admin'
-ADMIN_PASSWORD = 'maus123pass'
+CORS(app)
 
 server_queue = deque(maxlen=100)
 ping_logs = deque(maxlen=50)
@@ -153,178 +144,7 @@ def get_discord_queue():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/admin/login', methods=['POST'])
-def admin_login():
-    try:
-        data = request.json
-        username = data.get('username')
-        password = data.get('password')
-        
-        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
-            session['admin_logged_in'] = True
-            return jsonify({'success': True, 'message': 'Login successful'})
-        else:
-            return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/admin/logout', methods=['POST'])
-def admin_logout():
-    session.pop('admin_logged_in', None)
-    return jsonify({'success': True, 'message': 'Logged out'})
-
-@app.route('/api/admin/check', methods=['GET'])
-def admin_check():
-    return jsonify({'logged_in': session.get('admin_logged_in', False)})
-
-@app.route('/api/admin/keys', methods=['GET'])
-def get_keys():
-    if not session.get('admin_logged_in'):
-        return jsonify({'error': 'Unauthorized'}), 401
-    
-    try:
-        keys = get_all_keys()
-        return jsonify({'success': True, 'keys': keys})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/admin/keys/generate', methods=['POST'])
-def generate_key():
-    if not session.get('admin_logged_in'):
-        return jsonify({'error': 'Unauthorized'}), 401
-    
-    try:
-        key_data = create_new_key()
-        return jsonify({'success': True, 'key': key_data})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/admin/keys/<key>/delete', methods=['DELETE'])
-def remove_key(key):
-    if not session.get('admin_logged_in'):
-        return jsonify({'error': 'Unauthorized'}), 401
-    
-    try:
-        success = delete_key(key)
-        if success:
-            return jsonify({'success': True, 'message': 'Key deleted'})
-        else:
-            return jsonify({'success': False, 'error': 'Key not found'}), 404
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/admin/keys/<key>/freeze', methods=['PUT'])
-def freeze_api_key(key):
-    if not session.get('admin_logged_in'):
-        return jsonify({'error': 'Unauthorized'}), 401
-    
-    try:
-        success = freeze_key(key)
-        if success:
-            return jsonify({'success': True, 'message': 'Key frozen'})
-        else:
-            return jsonify({'success': False, 'error': 'Key not found'}), 404
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/admin/keys/<key>/unfreeze', methods=['PUT'])
-def unfreeze_api_key(key):
-    if not session.get('admin_logged_in'):
-        return jsonify({'error': 'Unauthorized'}), 401
-    
-    try:
-        success = unfreeze_key(key)
-        if success:
-            return jsonify({'success': True, 'message': 'Key unfrozen'})
-        else:
-            return jsonify({'success': False, 'error': 'Key not found'}), 404
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/admin/keys/<key>/activate', methods=['PUT'])
-def manually_activate_api_key(key):
-    if not session.get('admin_logged_in'):
-        return jsonify({'error': 'Unauthorized'}), 401
-    
-    try:
-        data = request.json
-        player_username = data.get('player_username')
-        
-        if not player_username:
-            return jsonify({'success': False, 'error': 'Missing player_username'}), 400
-        
-        result = manually_activate_key(key, player_username)
-        
-        if result['success']:
-            print(f"✅ Admin manually activated key {key[:8]}... for player '{player_username}'")
-            return jsonify({'success': True, 'message': f'Key activated for {player_username}'})
-        else:
-            return jsonify({'success': False, 'error': result.get('error', 'Unknown error')}), 400
-    except Exception as e:
-        print(f"❌ Error manually activating key: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/keys/activate', methods=['POST'])
-def activate_api_key():
-    try:
-        data = request.json
-        key = data.get('key')
-        player_username = data.get('player_username')
-        
-        if not key or not player_username:
-            return jsonify({'success': False, 'error': 'Missing key or player_username'}), 400
-        
-        result = activate_key(key, player_username)
-        
-        if result['success']:
-            return jsonify(result)
-        else:
-            return jsonify(result), 400
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/keys/verify', methods=['POST'])
-def verify_api_key():
-    try:
-        data = request.json
-        key = data.get('key')
-        player_username = data.get('player_username')
-        
-        if not key or not player_username:
-            return jsonify({'valid': False, 'error': 'Missing key or player_username'}), 400
-        
-        result = verify_key(key, player_username)
-        
-        if result['valid']:
-            return jsonify(result)
-        else:
-            return jsonify(result), 400
-    except Exception as e:
-        return jsonify({'valid': False, 'error': str(e)}), 500
-
-@app.route('/api/keys/check_player', methods=['POST'])
-def check_player():
-    try:
-        data = request.json
-        player_username = data.get('player_username')
-        
-        if not player_username:
-            return jsonify({'has_key': False, 'error': 'Missing player_username'}), 400
-        
-        result = check_player_key(player_username)
-        
-        if result:
-            print(f"✅ Player '{player_username}' found with active key: {result['key'][:8]}...")
-            return jsonify({'has_key': True, 'key': result['key'], 'status': result['status']})
-        else:
-            print(f"❌ Player '{player_username}' has no active key")
-            return jsonify({'has_key': False})
-    except Exception as e:
-        print(f"❌ Error checking player key: {e}")
-        return jsonify({'has_key': False, 'error': str(e)}), 500
-
 def cleanup_old_servers():
-    """Clean up servers older than 10 seconds"""
     while True:
         try:
             time.sleep(10)
@@ -352,8 +172,6 @@ def cleanup_old_servers():
 
 cleanup_thread = threading.Thread(target=cleanup_old_servers, daemon=True)
 cleanup_thread.start()
-
-init_db()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

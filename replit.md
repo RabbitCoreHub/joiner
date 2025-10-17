@@ -1,48 +1,20 @@
 # Roblox Auto-Joiner HTTP API
 
 ## Overview
-A Roblox server auto-joiner system with authentication and key management that monitors Discord channels for server information and automatically joins profitable servers. The system consists of:
+A Roblox server auto-joiner system that monitors Discord channels for server information and automatically joins profitable servers. The system consists of:
 
-1. **HTTP API Server** (main.py) - Flask-based REST API on port 5000 with admin authentication
+1. **HTTP API Server** (main.py) - Flask-based REST API on port 5000
 2. **WebSocket Server** (websocket_server.py) - WebSocket server for real-time Roblox client communication
 3. **Discord Bot** (discord_bot_http.py) - Monitors Discord channels for server information
-4. **Roblox Client** (roblox_client.lua) - Lua script with key activation system that runs in Roblox
-5. **Admin Panel** (index.html) - Web interface for key management and system monitoring
-6. **Database** (database.py + SQLite) - Key storage and player authentication
+4. **Roblox Client** (roblox_client.lua) - Lua script that runs in Roblox
+5. **Monitoring Dashboard** (index.html) - Web interface for system monitoring
 
 ## Architecture
 ```
-Discord → Discord Bot → HTTP API ← Admin Panel (Authentication)
-                           ↓              ↓
-                    SQLite Database ← Key Management
+Discord → Discord Bot → HTTP API ← Monitoring Dashboard
                            ↓
-                    WebSocket Server → Roblox Client (Lua + Key System)
+                    WebSocket Server → Roblox Client (Lua)
 ```
-
-## Authentication & Key System
-
-### Admin Panel Access
-- **URL**: Open the main page of your deployment
-- **Login**: admin
-- **Password**: maus123pass
-- **Features**:
-  - Generate new access keys for Roblox clients
-  - View all keys with status (active/inactive/frozen)
-  - Freeze/unfreeze keys
-  - Delete keys
-  - Real-time statistics
-
-### Roblox Client Key System
-The Lua script now includes a key activation system:
-
-1. **First Launch**: GUI prompts for key input
-2. **Key Activation**: Key binds to player's Roblox username
-3. **One Key Per Account**: Each key can only be used by one player
-4. **Automatic Login**: Returns players automatically logged in on subsequent launches
-5. **Key States**:
-   - **Inactive**: Newly generated, not yet activated
-   - **Active**: Activated and bound to a player
-   - **Frozen**: Deactivated by admin, cannot be used
 
 ## Setup Instructions
 
@@ -69,7 +41,7 @@ The main server is automatically started on port 5000 when you run the Repl.
 
 ### 4. Configure Roblox Client
 1. Open `roblox_client.lua`
-2. **API_URL is automatically updated**: `https://a5bb1dd5-c49a-4928-a843-42e92dbee496-00-1x1b83mdq47q6.worf.replit.dev`
+2. Update the **API_URL** to your Replit deployment URL
 3. Copy the entire script and execute it in Roblox through an executor
 
 ### 5. Set Up Discord Bot (Optional)
@@ -87,39 +59,24 @@ This project uses environment variables for security:
 
 ## API Endpoints
 
-### Public Endpoints (No Authentication)
-- **GET /** - Admin panel login page
+### Public Endpoints
+- **GET /** - Monitoring dashboard
 - **POST /api/server/push** - Push server data to queue
 - **GET /api/server/pull** - Pull next server from queue
 - **GET /api/status** - Get system status
 - **POST /api/ping** - Health check endpoint
 - **GET /api/logs** - Get ping logs
-
-### Admin Endpoints (Requires Authentication)
-- **POST /api/admin/login** - Login to admin panel
-- **POST /api/admin/logout** - Logout from admin panel
-- **GET /api/admin/check** - Check login status
-- **GET /api/admin/keys** - Get all keys
-- **POST /api/admin/keys/generate** - Generate new key
-- **DELETE /api/admin/keys/{key}/delete** - Delete a key
-- **PUT /api/admin/keys/{key}/freeze** - Freeze a key
-- **PUT /api/admin/keys/{key}/unfreeze** - Unfreeze a key
-
-### Roblox Client Endpoints (For Lua Script)
-- **POST /api/keys/activate** - Activate a key for a player
-- **POST /api/keys/verify** - Verify if key is valid for player
-- **POST /api/keys/check_player** - Check if player has an active key
+- **GET /api/discord/stats** - Get Discord bot statistics
+- **GET /api/discord/queue** - Get server queue with timers
 
 ## Project Structure
-- `main.py` - Main HTTP API server with authentication (Flask)
-- `database.py` - SQLite database module for key management
+- `main.py` - Main HTTP API server (Flask)
 - `websocket_server.py` - WebSocket server for real-time communication
 - `discord_bot_http.py` - Discord bot that monitors channels
-- `roblox_client.lua` - Roblox executor script with key system
-- `index.html` - Admin panel web interface
+- `roblox_client.lua` - Roblox executor script
+- `index.html` - Monitoring dashboard web interface
 - `config.py` - Configuration file with all settings
 - `requirements.txt` - Python dependencies
-- `api_keys.db` - SQLite database (auto-created, gitignored)
 
 ## Deployment
 
@@ -129,46 +86,41 @@ The HTTP API runs on port 5000 and is configured for 0.0.0.0 to work with Replit
 **Deployment Configuration:**
 - **Deployment Type**: VM (always running)
 - **Run Command**: `python main.py`
-- **Important Limitation**: The WebSocket server (port 8765) will NOT be externally accessible in Replit deployments because Replit only exposes one port. The core HTTP API functionality (server queue, key management, admin panel) works perfectly. Roblox clients should use the REST API endpoints (`/api/server/pull`) instead of WebSocket for polling servers.
+- **Important Limitation**: The WebSocket server (port 8765) will NOT be externally accessible in Replit deployments because Replit only exposes one port. The core HTTP API functionality (server queue, monitoring dashboard) works perfectly. Roblox clients should use the REST API endpoints (`/api/server/pull`) instead of WebSocket for polling servers.
 - **Discord Bot**: Optional component. Add `DISCORD_TOKEN` to Secrets to enable Discord channel monitoring.
 
 ### Production Deployment (Ubuntu/VPS)
-For full functionality including WebSocket server on a separate port, deploy to a VPS where both ports can be exposed. See deployment/ folder for automated Ubuntu setup scripts.
-
-## Ubuntu/VPS Deployment
-Проект полностью подготовлен для развертывания на Ubuntu 22.04+ сервере:
-
-### Быстрая установка
-```bash
-git clone <repo-url> roblox-auto-joiner
-cd roblox-auto-joiner
-sudo bash deployment/bootstrap.sh
-```
-
-### Документация
-- **[QUICKSTART_UBUNTU.md](QUICKSTART_UBUNTU.md)** - Быстрый старт (1 команда)
-- **[DEPLOY_UBUNTU.md](DEPLOY_UBUNTU.md)** - Подробная инструкция по развертыванию
-- **[deployment/README.md](deployment/README.md)** - Описание файлов развертывания
-
-### Что включено
-- ✅ Автоматическая установка всех зависимостей
-- ✅ Systemd сервисы для автозапуска (Flask + WebSocket)
-- ✅ Nginx reverse proxy конфигурация
-- ✅ UFW файрвол настройка
-- ✅ Поддержка HTTPS/SSL (Let's Encrypt)
-- ✅ Автоматическое управление процессами
-- ✅ Подробные инструкции на русском языке
+For full functionality including WebSocket server on a separate port, deploy to a VPS where both ports can be exposed.
 
 ## Recent Changes
+- 2025-10-16: **Complete Code Cleanup**
+  - Удалены все комментарии из всех Python файлов (main.py, config.py, websocket_server.py)
+  - Удалены все комментарии из roblox_client.lua
+  - Удалены все ненужные файлы:
+    - Документация (DEPLOY_*.md, QUICKSTART_*.md, KEY_SYSTEM_GUIDE.md, ИНСТРУКЦИЯ.md, README.md)
+    - Deployment скрипты (Procfile, render.yaml, start.bat, start.sh, deployment/)
+    - Тесты и примеры (test_*.py, test_*.sh, webhook_example.lua, google_apps_script.js)
+    - Старые файлы (api_keys.db, attached_assets/)
+  - Проект теперь содержит только необходимые файлы для работы
+  - Код остался полностью функциональным, все сервисы работают
+
+- 2025-10-16: **Removed Key Authentication System**
+  - Удалена полностью система ключей и аутентификации
+  - Удалены все endpoints для управления ключами (/api/admin/*, /api/keys/*)
+  - Удален файл database.py и база данных api_keys.db
+  - Упрощен index.html - теперь только мониторинг Discord бота и очереди серверов
+  - Упрощен roblox_client.lua - убрана вся логика активации и проверки ключей
+  - Убрана система сессий и аутентификации из Flask
+  - Проект стал более простым и доступным для использования
+
 - 2025-10-08: Successfully configured for Replit environment
   - Installed Python 3.11 with all required dependencies
-  - Installed packages: Flask 3.0.0, flask-cors 4.0.0, websockets 12.0, colorama 0.4.6, requests 2.31.0, gunicorn 23.0.0, keyboard 0.13.5
+  - Installed packages: Flask 3.0.0, flask-cors 4.0.0, websockets 12.0, colorama 0.4.6, requests 2.31.0, gunicorn 23.0.0
   - Created .gitignore file for Python project with database exclusions
   - Configured "Server" workflow to run Flask on port 5000 with webview output
   - Configured VM deployment with `python main.py` for always-running server
   - Both HTTP API (port 5000) and WebSocket server (port 8765) running successfully
-  - Frontend admin panel verified working at root URL
-  - Database initialization successful
+  - Frontend monitoring dashboard verified working at root URL
   - Discord bot monitoring disabled (requires DISCORD_TOKEN in Secrets to enable)
   - Note: In Replit deployment, WebSocket server on port 8765 is not externally accessible (only one port exposed). Use REST API endpoints instead for Roblox clients.
 
@@ -185,42 +137,6 @@ sudo bash deployment/bootstrap.sh
   - **Optional Keyboard Support**: Discord бот работает без keyboard в headless режиме
   - **Global Stats Tracking**: Глобальное хранилище статистики для мониторинга активности
   - Discord токен безопасно хранится в Replit Secrets
-
-- 2025-10-08: Successfully configured for Replit environment
-  - Installed all Python dependencies (Flask, flask-cors, websockets, colorama, requests, gunicorn, keyboard)
-  - Created .gitignore for Python project with database file exclusions
-  - Configured "Server" workflow to run Flask HTTP API on port 5000
-  - Set up VM deployment configuration with `python main.py`
-  - Documented Replit deployment limitation: WebSocket server on port 8765 not externally accessible (use REST API instead)
-  - Both HTTP API (port 5000) and WebSocket server (port 8765) running successfully in development
-  - Admin panel web interface verified working
-  - Core functionality (server queue, key management, admin authentication) fully operational
-
-- 2025-10-08: Added complete authentication and key management system
-  - **NEW: Admin Panel Authentication** - Login system with credentials (admin/maus123pass)
-  - **NEW: Key Management System** - SQLite database for storing and managing access keys
-  - **NEW: Roblox Key Activation** - Lua script now requires key activation before use
-  - **NEW: Player Binding** - Each key binds to one Roblox username permanently
-  - **NEW: Key States** - Support for inactive, active, and frozen key states
-  - **NEW: Admin Controls** - Generate, freeze, unfreeze, and delete keys via web interface
-  - Created `database.py` module with SQLite integration
-  - Added 9 new API endpoints for key management
-  - Completely redesigned `index.html` with login page and key management UI
-  - Updated `roblox_client.lua` with key activation GUI and logic
-  - Updated `main.py` with session-based authentication and key endpoints
-  - All features tested and working: login, key generation, activation, freezing, player binding
-  - Database file (api_keys.db) automatically created and gitignored
-  
-- 2025-10-08: Fresh GitHub import successfully configured for Replit environment
-  - Python 3.12 already installed in Replit environment
-  - Installed all Python dependencies via packager: Flask 3.0.0, flask-cors 4.0.0, websockets 12.0, colorama 0.4.6, requests 2.31.0, keyboard 0.13.5, gunicorn 23.0.0
-  - Created comprehensive .gitignore for Python project
-  - Configured workflow "Server" to run Flask HTTP API on port 5000 with webview output
-  - Configured VM deployment with `python main.py` for always-running server (required for WebSocket support)
-  - Both HTTP API (Flask on port 5000) and WebSocket server (port 8765) running successfully
-  - System ready for use: HTTP API and WebSocket server fully operational
-  - Note: Discord bot monitoring is optional and requires DISCORD_TOKEN to be added to Secrets
-  - Project includes complete Ubuntu/VPS deployment automation in deployment/ folder
 
 ## User Preferences
 None specified yet.

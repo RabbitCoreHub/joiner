@@ -264,8 +264,7 @@ class DiscordMonitor:
 
         content = message_data.get('content', '')
         embeds = message_data.get('embeds', [])
-        
-        # Проверяем message_snapshots (цитаты/ответы на сообщения)
+
         if not embeds and 'message_snapshots' in message_data:
             snapshots = message_data.get('message_snapshots', [])
             if snapshots and len(snapshots) > 0:
@@ -274,28 +273,24 @@ class DiscordMonitor:
                 if not content:
                     content = snapshot_message.get('content', '')
 
-        # Сначала проверим Ice Hub формат (UUID в начале)
         if "Ice Hub Finder - Target Located" in content:
             return await self.parse_ice_hub_message(content)
 
-        # Парсинг сообщений с эмодзи заголовками (типа Brainrot Notify | Chilli Hub)
         if self.has_emoji_headers(content):
             return await self.parse_emoji_formatted_message(content)
 
-        # Если нет эмбедов, парсим контент как текст
         if not embeds and content:
             lines = [line.strip() for line in content.split('\n') if line.strip()]
 
-            # Улучшенный парсинг для различных форматов сообщений
             i = 0
             while i < len(lines):
                 line = lines[i]
 
-                # Парсинг имени (поддержка различных вариантов)
+
                 if 'Name' in line or '🏷️' in line:
                     name_parts = []
                     i += 1
-                    # Собираем все строки до следующего поля
+
                     while i < len(lines) and not self.is_field_header(lines[i]):
                         name_parts.append(lines[i])
                         i += 1
@@ -303,7 +298,6 @@ class DiscordMonitor:
                         parsed_data['name'] = ' '.join(name_parts).strip()
                     continue
 
-                # Парсинг денег
                 elif self.is_money_header(line):
                     money_result = self.parse_money_improved(lines[i + 1] if i + 1 < len(lines) else '')
                     if money_result:
@@ -313,7 +307,6 @@ class DiscordMonitor:
                     i += 2
                     continue
 
-                # Парсинг игроков
                 elif self.is_players_header(line):
                     players_line = lines[i + 1] if i + 1 < len(lines) else ''
                     if '/' in players_line:
@@ -321,7 +314,6 @@ class DiscordMonitor:
                     i += 2
                     continue
 
-                # Парсинг Job ID - проверяем и PC и Mobile варианты
                 elif self.is_job_id_header(line):
                     job_id_result = self.parse_job_id_section(lines, i)
                     if job_id_result:
@@ -331,7 +323,6 @@ class DiscordMonitor:
                     i += 1
                     continue
 
-                # Парсинг скрипта
                 elif self.is_script_header(line):
                     if i + 1 < len(lines):
                         script = lines[i + 1].strip()
@@ -342,7 +333,7 @@ class DiscordMonitor:
                     i += 1
                     continue
 
-                # Парсинг ссылки
+
                 elif self.is_link_header(line):
                     if i + 1 < len(lines):
                         parsed_data['join_link'] = lines[i + 1].strip()
@@ -355,7 +346,7 @@ class DiscordMonitor:
 
             return parsed_data
 
-        # Парсинг эмбедов (если они есть)
+
         if embeds:
             for embed in embeds:
                 fields = embed.get('fields', [])
@@ -381,7 +372,7 @@ class DiscordMonitor:
                         parsed_data['players'] = clean_players
 
                     if any(pattern in field_name for pattern in JOB_ID_PATTERNS):
-                        # Удаляем markdown код блоки (```)
+
                         clean_value = field_value.replace('```', '').strip()
                         job_id_match = re.search(r'([a-f0-9\-]{36})', clean_value)
                         if job_id_match:
@@ -389,7 +380,7 @@ class DiscordMonitor:
 
                     if any(pattern in field_name for pattern in SCRIPT_PATTERNS):
                         parsed_data['script'] = field_value.strip()
-                        # Извлекаем Job ID из скрипта если еще не нашли
+
                         if not parsed_data['job_id']:
                             script_job_id = re.search(r'([a-f0-9\-]{36})', field_value)
                             if script_job_id:
@@ -398,18 +389,18 @@ class DiscordMonitor:
                     if any(pattern in field_name for pattern in JOIN_LINK_PATTERNS):
                         parsed_data['join_link'] = field_value.strip()
 
-        # Если нашли join_link но не нашли job_id, пытаемся извлечь из ссылки
+
         if not parsed_data['job_id'] and parsed_data['join_link']:
             game_id_match = re.search(r'gameInstanceId=([a-f0-9\-]+)', parsed_data['join_link'])
             if game_id_match:
                 parsed_data['job_id'] = game_id_match.group(1)
         
-        # Финальный fallback: ищем Job ID во всех полях embeds если еще не нашли
+
         if not parsed_data['job_id'] and embeds:
             for embed in embeds:
                 fields = embed.get('fields', [])
                 for field in fields:
-                    # Проверяем все поля на наличие UUID
+
                     field_value = field.get('value', '')
                     clean_value = field_value.replace('```', '').replace('**', '').strip()
                     job_id_match = re.search(r'([a-f0-9\-]{36})', clean_value)
@@ -462,7 +453,7 @@ class DiscordMonitor:
         try:
             money_text = money_text.replace(',', '').replace('$', '').replace('**', '').replace('`', '').strip()
 
-            # Паттерны для разных форматов: 600K, 1.2M, 500B, обычные числа
+
             patterns = [
                 (r'(\d+(?:\.\d+)?)\s*([KMB]?)/s', 'per_second'),
                 (r'(\d+(?:\.\d+)?)\s*([KMB]?)', 'standard')
@@ -498,22 +489,22 @@ class DiscordMonitor:
         current_line = lines[start_index]
         result = {'job_id': None, 'next_index': start_index + 1}
 
-        # Проверяем, есть ли PC или Mobile в текущей строке
+
         is_pc_version = 'PC' in current_line
         is_mobile_version = 'Mobile' in current_line
 
-        # Если следующая строка содержит UUID, берем его
+
         if start_index + 1 < len(lines):
             next_line = lines[start_index + 1].strip()
             if re.match(r'^[a-f0-9\-]{36}$', next_line):
                 result['job_id'] = next_line
                 result['next_index'] = start_index + 2
 
-                # Если есть вторая версия (PC/Mobile), парсим и её
+
                 if start_index + 2 < len(lines):
                     next_next_line = lines[start_index + 2].strip()
                     if re.match(r'^[a-f0-9\-]{36}$', next_next_line):
-                        # Берем первый найденный Job ID (PC или Mobile)
+
                         result['job_id'] = next_line
                         result['next_index'] = start_index + 3
 
@@ -539,7 +530,7 @@ class DiscordMonitor:
         while i < len(lines):
             line = lines[i]
 
-            # Парсинг названия после 🏷️
+
             if '🏷️' in line and 'Name' in line:
                 i += 1
                 if i < len(lines):
@@ -547,7 +538,7 @@ class DiscordMonitor:
                 i += 1
                 continue
 
-            # Парсинг денег после 💰
+
             elif '💰' in line and 'Money per sec' in line:
                 i += 1
                 if i < len(lines):
@@ -559,7 +550,7 @@ class DiscordMonitor:
                 i += 1
                 continue
 
-            # Парсинг игроков после 👥
+
             elif '👥' in line and 'Players' in line:
                 i += 1
                 if i < len(lines):
@@ -569,7 +560,7 @@ class DiscordMonitor:
                 i += 1
                 continue
 
-            # Парсинг Job ID секции
+
             elif '🆔' in line:
                 job_result = self.parse_job_id_from_emoji_section(lines, i)
                 if job_result:
@@ -579,7 +570,6 @@ class DiscordMonitor:
                 i += 1
                 continue
 
-            # Парсинг ссылки после 🌐
             elif '🌐' in line and 'Join Link' in line:
                 i += 1
                 if i < len(lines):
@@ -587,7 +577,7 @@ class DiscordMonitor:
                 i += 1
                 continue
 
-            # Парсинг скрипта после 📜
+
             elif '📜' in line and 'Join Script' in line:
                 i += 1
                 if i < len(lines):
@@ -870,7 +860,7 @@ class DiscordMonitor:
 
 def test_parsing():
     """Тестовая функция для проверки парсинга сообщений"""
-    # Пример сообщения от пользователя
+
     test_message = """Brainrot Notify | Chilli Hub
 🏷️ Name
 La Karkerkar Combinasion
@@ -889,16 +879,16 @@ game:GetService("TeleportService"):TeleportToPlaceInstance(109983668079237,"8f4e
 Made by Chilli Hub•Сегодня, в 23:39, бот мог легко достать например 🆔 Job ID (PC)
 8f4eee40-8091-45fd-86a2-14820a64c502 записать его как 8f4eee40-8091-45fd-86a2-14820a64c502 и отправить через апи в луа скрипт"""
 
-    # Создаем мок объект сообщения
+
     mock_message_data = {
         'content': test_message,
         'embeds': []
     }
 
-    # Создаем монитор для тестирования
+
     monitor = DiscordMonitor("http://test-api.com")
 
-    # Тестируем парсинг
+
     import asyncio
     async def run_test():
         print("🧪 Тестируем парсинг сообщения...")
@@ -920,7 +910,7 @@ Made by Chilli Hub•Сегодня, в 23:39, бот мог легко дост
         print("\n" + "=" * 80)
         print("✅ Тест завершен!")
 
-        # Проверяем, что все важные поля найдены
+
         success = True
         if not parsed_data['job_id']:
             print("❌ Job ID не найден!")
@@ -937,7 +927,7 @@ Made by Chilli Hub•Сегодня, в 23:39, бот мог легко дост
         else:
             print("⚠️ Некоторые поля не удалось распарсить")
 
-        # Запускаем тест
+
         asyncio.run(run_test())
 
 
